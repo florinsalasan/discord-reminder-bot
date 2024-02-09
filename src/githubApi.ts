@@ -7,8 +7,12 @@ interface GitHubStreakTrackerConfig {
   token: string;
 }
 
+if (!process.env.GITHUB_TOKEN) {
+  throw new Error('GitHub token not provided. Set GITHUB_TOKEN environment variable.');
+}
+
 const octokit = new Octokit({
-  auth: `${process.env.GITHUB_TOKEN}`, // Include 'token' here
+  auth: `token ${process.env.GITHUB_TOKEN}`, // Include 'token' here
   userAgent: 'GitHub-Streak-Tracker', // Add a custom user agent if desired
 });
 
