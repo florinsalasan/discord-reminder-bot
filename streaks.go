@@ -1,56 +1,83 @@
 package main
 
 import (
-    "fmt"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
     "log"
-    "os"
-    "os/signal"
-    "time"
-    "strings"
-    "errors"
+
+	"github.com/bwmarrin/discordgo"
 
     "github.com/joho/godotenv"
-
-    "github.com/bwmarrin/discordgo"
 )
 
-var discSess *discordgo.Session
+// Variables used for command line parameters
+var (
+	BotToken string
+)
 
-func main() {
-    dotenverr := godotenv.Load(".env")
-    if dotenverr != nil {
+func init() {
+
+    err := godotenv.Load(".env")
+    if err != nil {
         log.Fatal("Error loading .env file")
     }
 
-    APP_ID := os.Getenv("APP_ID")
-    PUBLIC_KEY := os.Getenv("PUBLIC_KEY")
-    DISCORD_TOKEN := os.Getenv("DISCORD_TOKEN")
-    CHANNEL_ID := os.Getenv("CHANNEL_ID")
-    GUILD_ID := os.Getenv("GUILD_ID")
-    RemoveCommands := true
+    BotToken = os.Getenv("BOT_TOKEN")
 
-    discord, _ := discordgo.New("Bot " + DISCORD_TOKEN)
-    discord.AddHandler(func(discord *discordgo.Session, r *discordgo.Ready) {
-        fmt.Println("Bot is ready")
-    })
+}
 
-    err := discord.Open()
-    if err != nil {
-        log.Fatalf("Cannot open the session: %v", err)
-    }
-    defer discord.Close()
+func main() {
 
-    // event := createEvent(discord)
+	// Create a new Discord session using the provided bot token.
+	dg, err := discordgo.New("Bot " + BotToken)
+	if err != nil {
+		fmt.Println("error creating Discord session,", err)
+		return
+	}
 
-    fmt.Printf("APP_ID: %v\n", APP_ID)
-    fmt.Printf("PUBLIC_KEY: %v\n", PUBLIC_KEY)
-    fmt.Printf("DISCORD_TOKEN: %v\n", DISCORD_TOKEN)
-    fmt.Printf("CHANNEL_ID: %v\n", CHANNEL_ID)
-    fmt.Printf("GUILD_ID: %v\n", GUILD_ID)
+	// Register the messageCreate func as a callback for MessageCreate events.
+	dg.AddHandler(messageCreate)
+    fmt.Println("adding handler")
 
-    stop := make(chan os.Signal, 1)
-    signal.Notify(stop, os.Interrupt)
-    <-stop
-    log.Println("Shutdown")
+	// In this example, we only care about receiving message events.
+	dg.Identify.Intents = discordgo.IntentsGuildMessages
 
+	// Open a websocket connection to Discord and begin listening.
+	err = dg.Open()
+	if err != nil {
+		fmt.Println("error opening connection,", err)
+		return
+	}
+    fmt.Println("websocket should be open")
+
+	// Wait here until CTRL-C or other term signal is received.
+	fmt.Println("Bot is now running.  Press CTRL-C to exit.")
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+	<-sc
+
+	// Cleanly close down the Discord session.
+	dg.Close()
+}
+
+// This function will be called (due to AddHandler above) every time a new
+// message is created on any channel that the authenticated bot has access to.
+func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+
+	// Ignore all messages created by the bot itself
+	// This isn't required in this specific example but it's a good practice.
+	if m.Author.ID == s.State.User.ID {
+		return
+	}
+	// If the message is "ping" reply with "Pong!"
+	if m.Content == "ping" {
+		s.ChannelMessageSend(m.ChannelID, "Pong!")
+	}
+
+	// If the message is "pong" reply with "Ping!"
+	if m.Content == "pong" {
+		s.ChannelMessageSend(m.ChannelID, "Ping!")
+	}
 }
