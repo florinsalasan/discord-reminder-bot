@@ -1,4 +1,4 @@
-module florinsalasan/contribution-streaks
+module florinsalasan/discord-reminder-bot
 
 go 1.22.0
 
