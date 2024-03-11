@@ -18,10 +18,12 @@ func main() {
     // Get the token from .env
     botToken := os.Getenv("BOT_TOKEN")
     guildID := os.Getenv("GUILD_ID")
+    reminderChannelID := os.Getenv("REMINDER_CHANNEL_ID")
 
     // set the bot's token and start the bot
     bot.BotToken = botToken
     bot.GuildID = guildID
+    bot.ReminderChannelID = reminderChannelID
     bot.Run()
 
 }

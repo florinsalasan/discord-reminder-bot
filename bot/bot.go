@@ -14,6 +14,7 @@ var (
     BotToken string
     RemoveCommands bool
     GuildID string
+    ReminderChannelID string
 )
 
 var (
@@ -26,6 +27,7 @@ var (
             Description: "Meant to test the slash commands working",
         },
     }
+
     commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
         "test-command": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
             s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -60,6 +62,9 @@ func Run() {
     }
     defer discord.Close()
 
+    // Get the reminder topics from the channel
+    getReminderTopics(discord)
+
     // Add in the commands that were defined earlier.
     registeredCommands := make([]*discordgo.ApplicationCommand, len(commands))
     for i, v := range commands {
@@ -91,6 +96,23 @@ func newMessage(discord *discordgo.Session, message *discordgo.MessageCreate) {
         discord.ChannelMessageSend(message.ChannelID, "Will remind you!")
     case strings.Contains(message.Content, "bot"):
         discord.ChannelMessageSend(message.ChannelID, "Hello from reminder bot!")
+    }
+
+}
+
+func getReminderTopics(discord *discordgo.Session) {
+
+    // Get the most recent message in reminder-topics channel, ID is in
+    // ReminderChannelID and we do this by calling ChannelMessagesPinned on 
+    // the current session.
+    reminders, err := discord.ChannelMessagesPinned(ReminderChannelID)
+    if err != nil {
+        log.Fatal("Couldn't get the list of reminders to remind user of")
+    }
+
+    println(len(reminders))
+    for _, rem := range reminders {
+        println(rem)
     }
 
 }
