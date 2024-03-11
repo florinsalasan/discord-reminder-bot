@@ -12,6 +12,30 @@ import (
 
 var (
     BotToken string
+    RemoveCommands bool
+    GuildID string
+)
+
+var (
+
+    commands = []*discordgo.ApplicationCommand{
+        {
+            Name: "test-command",
+            // Commands and options must have descriptions, if a command
+            // or option does not have one, it will not be registered.
+            Description: "Meant to test the slash commands working",
+        },
+    }
+    commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+        "test-command": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+            s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+                Type: discordgo.InteractionResponseChannelMessageWithSource,
+                Data: &discordgo.InteractionResponseData{
+                    Content: "Hey there, congrats on finding the first slash cmd!",
+                },
+            })
+        },
+    }
 )
 
 func Run() {
@@ -23,10 +47,28 @@ func Run() {
 
     // Add an event handler, with the handler function of newMessage
     discord.AddHandler(newMessage)
+    discord.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+        if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
+            h(s, i)
+        }
+    })
 
     // open the discord session and defer it's closing
-    discord.Open()
+    err = discord.Open()
+    if err != nil {
+        log.Fatal("error opening connection, ", err)
+    }
     defer discord.Close()
+
+    // Add in the commands that were defined earlier.
+    registeredCommands := make([]*discordgo.ApplicationCommand, len(commands))
+    for i, v := range commands {
+        cmd, err := discord.ApplicationCommandCreate(discord.State.User.ID, GuildID, v)
+        if err != nil {
+            log.Panicf("Cannot create '%v' comand: %v", v.Name, err)
+        }
+        registeredCommands[i] = cmd
+    }
 
     // This section will run until the process is terminated
     fmt.Println("Bot running...")

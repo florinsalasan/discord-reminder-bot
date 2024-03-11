@@ -9,7 +9,8 @@ them periodically throughout the day.
 ## TODO:
 
 - [ ] Everything, currently this is not a functioning project
-- [ ] Connect to discord api using discordgo package from bwmarrin
+- [x] Connect to discord api using discordgo package from bwmarrin
+- [ ] Find a method of storing the list of reminders a user wants to be reminded of
 - [ ] Setup the cron jobs for periodic reminders while tasks are not marked as complete
 - [ ] Setup a way to mark tasks as complete for the day
 - [ ] Setup a bot command to add and remove daily tasks to be reminded of
