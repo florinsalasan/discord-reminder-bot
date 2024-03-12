@@ -192,22 +192,23 @@ func getReminderTopics(discord *discordgo.Session) {
     }
 
     // Check that only one pinned message exists to read from
-    if len(reminders) != 1 {
-        log.Fatal("More than one pinned message to read the reminders from")
-    }
+    // if len(reminders) != 1 {
+    //    log.Fatal("More than one pinned message to read the reminders from")
+    // }
 
     // Split the one message into the different 
-    topics := strings.Split(reminders[0].Content, ",")
+    if len(reminders) != 0 {
+        topics := strings.Split(reminders[0].Content, ",")
 
-    // trim the whitespace for consistency
-    for i, topic := range topics {
-        topics[i] = strings.TrimSpace(topic)
+        // trim the whitespace for consistency
+        for i, topic := range topics {
+            topics[i] = strings.TrimSpace(topic)
+        }
+
+        for _, topic := range topics {
+            println(topic)
+        }
     }
-
-    for _, topic := range topics {
-        println(topic)
-    }
-
 }
 
 func addReminderTopics(discord *discordgo.Session, topic string, freq string) {
@@ -220,12 +221,27 @@ func addReminderTopics(discord *discordgo.Session, topic string, freq string) {
         log.Fatal("Couldn't get the list of reminders to remind user of")
     }
 
-    // Check that only one pinned message exists to read from
-    if len(reminders) != 1 {
-        log.Fatal("More than one pinned message to read the reminders from")
+    var messageID string
+
+    if len(reminders) != 0{
+        messageID = reminders[0].ID
+        println(messageID)
     }
 
-    messageID := reminders[0].ID
+    // Check that only one pinned message exists to read from
+    if len(reminders) != 1 {
+        // If the len is not 1, that should mean that there is no pinned message,
+        // so we have to make it ourselves
+        toPin, err := discord.ChannelMessageSend(ReminderChannelID, topic)
+        if err != nil {
+            log.Panic("Could not send initial message to pin in reminder channel")
+        }
+        err = discord.ChannelMessagePin(ReminderChannelID, toPin.ID)
+        if err != nil {
+            log.Panic("Could not pin the first topic message")
+        }
+        return
+    }
 
     // Split the one message into the different 
     topics := strings.Split(reminders[0].Content, ",")
