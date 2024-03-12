@@ -1,13 +1,13 @@
 package bot
 
 import (
-    "fmt"
-    "log"
-    "os"
-    "os/signal"
-    "strings"
+	"fmt"
+	"log"
+	"os"
+	"os/signal"
+	"strings"
 
-    "github.com/bwmarrin/discordgo"
+	"github.com/bwmarrin/discordgo"
 )
 
 var (
@@ -26,6 +26,47 @@ var (
             // or option does not have one, it will not be registered.
             Description: "Meant to test the slash commands working",
         },
+        {
+            // TODO: Fix the event handler for add-topic, as it will be similar for
+            // other commands later on.
+            // Do not touch this for now, the command is being shown properly on 
+            // discord, however I am not handling the input correctly yet
+            Name: "add-topic",
+            // use the subcommands usage to implement the frequency of the reminders
+            Description: "Parent command for adding a topic to be reminded of, options set the frequency",
+            Options: []*discordgo.ApplicationCommandOption {
+                {
+                    Type: discordgo.ApplicationCommandOptionString,
+                    Name: "frequency",
+                    Description: "Set the new reminder frequency to user-input",
+                    Required: true,
+                    Choices: []*discordgo.ApplicationCommandOptionChoice{
+                        {
+                            Name: "Daily",
+                            Value: "daily",
+                        },
+                        {
+                            Name: "Weekly",
+                            Value: "weekly",
+                        },
+                        {
+                            Name: "Monthly",
+                            Value: "monthly",
+                        },
+                        {
+                            Name: "Yearly",
+                            Value: "yearly",
+                        },
+                    },
+                },
+                {
+                    Type: discordgo.ApplicationCommandOptionString,
+                    Name: "topic",
+                    Description: "The topic you want to be reminded of",
+                    Required: true,
+                },
+            },
+        },
     }
 
     commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -34,6 +75,46 @@ var (
                 Type: discordgo.InteractionResponseChannelMessageWithSource,
                 Data: &discordgo.InteractionResponseData{
                     Content: "Hey there, congrats on finding the first slash cmd!",
+                },
+            })
+        },
+        "add-topic": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+            // Can access options in the order given, or if we wanted to could have
+            // converted this into a map
+            options := i.ApplicationCommandData().Options
+            content := ""
+            frequency := ""
+            topic := options[1].StringValue()
+
+            // This is how to get the values that the user specifies:
+            // println(options[0].StringValue())
+            // println(options[1].StringValue())
+            switch options[0].StringValue() {
+            // Swap this out for a function that sets the reminders with frequency
+            // as a parameter, zero need for a switch statement here.
+            case "daily":
+                frequency = "daily"
+                addReminderTopics(s, topic, frequency)
+            default:
+                content = "Sorry only daily frequencies have been implemented so far"
+            }
+
+            if frequency != "daily" {
+                log.Panic("Frequencies other than daily have not been implemented yet, sorry")
+            }
+
+            content = topic + " has been registered to receive " + 
+                frequency + " updates."
+
+            // At this point we have built the Content message that the bot willl 
+            // respond with, need:
+            // TODO:
+            // Modify the pinned comment in the reminder-topics channel based on the 
+
+            s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+                Type: discordgo.InteractionResponseChannelMessageWithSource,
+                Data: &discordgo.InteractionResponseData{
+                    Content: content,
                 },
             })
         },
@@ -70,7 +151,7 @@ func Run() {
     for i, v := range commands {
         cmd, err := discord.ApplicationCommandCreate(discord.State.User.ID, GuildID, v)
         if err != nil {
-            log.Panicf("Cannot create '%v' comand: %v", v.Name, err)
+            log.Panicf("Cannot create '%v' command: %v", v.Name, err)
         }
         registeredCommands[i] = cmd
     }
@@ -110,9 +191,68 @@ func getReminderTopics(discord *discordgo.Session) {
         log.Fatal("Couldn't get the list of reminders to remind user of")
     }
 
-    println(len(reminders))
-    for _, rem := range reminders {
-        println(rem)
+    // Check that only one pinned message exists to read from
+    if len(reminders) != 1 {
+        log.Fatal("More than one pinned message to read the reminders from")
+    }
+
+    // Split the one message into the different 
+    topics := strings.Split(reminders[0].Content, ",")
+
+    // trim the whitespace for consistency
+    for i, topic := range topics {
+        topics[i] = strings.TrimSpace(topic)
+    }
+
+    for _, topic := range topics {
+        println(topic)
     }
 
 }
+
+func addReminderTopics(discord *discordgo.Session, topic string, freq string) {
+
+    // Currently freq will do nothing, need to think of the best way to implement
+    // frequencies other than daily
+
+    reminders, err := discord.ChannelMessagesPinned(ReminderChannelID)
+    if err != nil {
+        log.Fatal("Couldn't get the list of reminders to remind user of")
+    }
+
+    // Check that only one pinned message exists to read from
+    if len(reminders) != 1 {
+        log.Fatal("More than one pinned message to read the reminders from")
+    }
+
+    messageID := reminders[0].ID
+
+    // Split the one message into the different 
+    topics := strings.Split(reminders[0].Content, ",")
+
+    // trim the whitespace for consistency
+    for i, topic := range topics {
+        topics[i] = strings.TrimSpace(topic)
+    }
+
+    for _, topic := range topics {
+        println(topic)
+    }
+
+    topics = append(topics, topic)
+    topicsStringed := strings.Join(topics[:], ", ")
+    
+    // rejoined the list of topics into a string again, and now need to
+    // edit the pinned message to the new string. Ok so bots are seemingly not 
+    // allowed to modify messages that were not sent by it  
+    // So need to remove the initial pinned message, pin the inital value and 
+    // afterwards can continue modifying the pinned comment
+    msg, err := discord.ChannelMessageEdit(ReminderChannelID, messageID, topicsStringed)
+    if err != nil {
+        log.Panicf("Cannot modify pinned message: %v", err)
+    }
+
+    println(msg.Content)
+
+}
+
