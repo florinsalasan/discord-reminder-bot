@@ -27,6 +27,19 @@ var (
             Description: "Meant to test the slash commands working",
         },
         {
+            Name: "remove-topic",
+            // use the subcommands usage to implement the frequency of the reminders
+            Description: "Parent command for removing a topic to be reminded of",
+            Options: []*discordgo.ApplicationCommandOption {
+                {
+                    Type: discordgo.ApplicationCommandOptionString,
+                    Name: "topic",
+                    Description: "The topic you want to be reminded of",
+                    Required: true,
+                },
+            },
+        },
+        {
             // TODO: Fix the event handler for add-topic, as it will be similar for
             // other commands later on.
             // Do not touch this for now, the command is being shown properly on 
@@ -118,6 +131,50 @@ var (
                 },
             })
         },
+        "remove-topic": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+
+            // Have to query the pinned messages in the ReminderChannelID and edit
+            // the message if it exists, do this first to return early if there is
+            // no pinned message
+            msgs, err := s.ChannelMessagesPinned(ReminderChannelID)
+            if err != nil {
+                log.Fatal("Something went wrong retrieving the pinned message when trying to remove-topic ", err)
+            }
+            if len(msgs) == 0 {
+                s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+                    Type: discordgo.InteractionResponseChannelMessageWithSource,
+                    Data: &discordgo.InteractionResponseData{
+                        Content: "No topics to remove from",
+                    },
+                })
+                return
+            }
+
+
+            options := i.ApplicationCommandData().Options
+            topic := options[0].StringValue()
+            currTopics, err := getReminderTopics(s)
+            if err != nil {
+                log.Fatal("Could not get current reminder topics when calling remove-topic ", err)
+            }
+
+            // To access the current topics need to loop over currTopics, can't
+            // see a way to call methods on it even though its a slice of strings
+            for i, tpc := range currTopics {
+                if tpc == topic {
+                    currTopics[i] = ""
+                }
+            }
+
+            updateReminderTopic(s, currTopics)
+
+            s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+                Type: discordgo.InteractionResponseChannelMessageWithSource,
+                Data: &discordgo.InteractionResponseData{
+                    Content: topic + " has been removed from list of reminder topics",
+                },
+            })
+        },
     }
 )
 
@@ -144,7 +201,10 @@ func Run() {
     defer discord.Close()
 
     // Get the reminder topics from the channel
-    getReminderTopics(discord)
+    _, err = getReminderTopics(discord)
+    if err != nil {
+        log.Fatal("error grabbing the current topics ", err)
+    }
 
     // Add in the commands that were defined earlier.
     registeredCommands := make([]*discordgo.ApplicationCommand, len(commands))
@@ -181,7 +241,7 @@ func newMessage(discord *discordgo.Session, message *discordgo.MessageCreate) {
 
 }
 
-func getReminderTopics(discord *discordgo.Session) {
+func getReminderTopics(discord *discordgo.Session) ([]string, error) {
 
     // Get the most recent message in reminder-topics channel, ID is in
     // ReminderChannelID and we do this by calling ChannelMessagesPinned on 
@@ -208,7 +268,12 @@ func getReminderTopics(discord *discordgo.Session) {
         for _, topic := range topics {
             println(topic)
         }
+
+        return topics, nil
     }
+    var slice []string
+    return slice, nil
+
 }
 
 func addReminderTopics(discord *discordgo.Session, topic string, freq string) {
@@ -272,3 +337,23 @@ func addReminderTopics(discord *discordgo.Session, topic string, freq string) {
 
 }
 
+func updateReminderTopic(discord *discordgo.Session, topics []string) {
+    // Helper function for the handler that removes a reminder, this
+    // takes in the session and the list that the pinned comment should be updated to
+
+    reminders, err := discord.ChannelMessagesPinned(ReminderChannelID)
+    if err != nil {
+        log.Fatal("Couldn't get the list of reminders to remind user of")
+    }
+
+    messageID := reminders[0].ID
+    topicsStringed := strings.Join(topics[:], ", ")
+
+    msg, err := discord.ChannelMessageEdit(ReminderChannelID, messageID, topicsStringed)
+    if err != nil {
+        log.Panicf("Cannot modify pinned message: %v", err)
+    }
+
+    println(msg.Content)
+
+}
