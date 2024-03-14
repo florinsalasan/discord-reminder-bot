@@ -10,15 +10,17 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+// Define some global vars 
 var (
     BotToken string
     RemoveCommands bool
     GuildID string
     ReminderChannelID string
+    pinnedMessage *discordgo.Message
 )
 
+// Define the commands and their handlers
 var (
-
     commands = []*discordgo.ApplicationCommand{
         {
             Name: "test-command",
@@ -40,12 +42,7 @@ var (
             },
         },
         {
-            // TODO: Fix the event handler for add-topic, as it will be similar for
-            // other commands later on.
-            // Do not touch this for now, the command is being shown properly on 
-            // discord, however I am not handling the input correctly yet
             Name: "add-topic",
-            // use the subcommands usage to implement the frequency of the reminders
             Description: "Parent command for adding a topic to be reminded of, options set the frequency",
             Options: []*discordgo.ApplicationCommandOption {
                 {
@@ -92,25 +89,10 @@ var (
             })
         },
         "add-topic": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-            // Can access options in the order given, or if we wanted to could have
-            // converted this into a map
             options := i.ApplicationCommandData().Options
             content := ""
-            frequency := ""
             topic := options[1].StringValue()
-
-            // This is how to get the values that the user specifies:
-            // println(options[0].StringValue())
-            // println(options[1].StringValue())
-            switch options[0].StringValue() {
-            // Swap this out for a function that sets the reminders with frequency
-            // as a parameter, zero need for a switch statement here.
-            case "daily":
-                frequency = "daily"
-                addReminderTopics(s, topic, frequency)
-            default:
-                content = "Sorry only daily frequencies have been implemented so far"
-            }
+            frequency := options[0].StringValue() 
 
             if frequency != "daily" {
                 log.Panic("Frequencies other than daily have not been implemented yet, sorry")
@@ -119,10 +101,7 @@ var (
             content = topic + " has been registered to receive " + 
                 frequency + " updates."
 
-            // At this point we have built the Content message that the bot willl 
-            // respond with, need:
-            // TODO:
-            // Modify the pinned comment in the reminder-topics channel based on the 
+            updateReminderTopic(s, topic, true)
 
             s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
                 Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -133,9 +112,6 @@ var (
         },
         "remove-topic": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
-            // Have to query the pinned messages in the ReminderChannelID and edit
-            // the message if it exists, do this first to return early if there is
-            // no pinned message
             msgs, err := s.ChannelMessagesPinned(ReminderChannelID)
             if err != nil {
                 log.Fatal("Something went wrong retrieving the pinned message when trying to remove-topic ", err)
@@ -150,23 +126,10 @@ var (
                 return
             }
 
-
             options := i.ApplicationCommandData().Options
             topic := options[0].StringValue()
-            currTopics, err := getReminderTopics(s)
-            if err != nil {
-                log.Fatal("Could not get current reminder topics when calling remove-topic ", err)
-            }
 
-            // To access the current topics need to loop over currTopics, can't
-            // see a way to call methods on it even though its a slice of strings
-            for i, tpc := range currTopics {
-                if tpc == topic {
-                    currTopics[i] = ""
-                }
-            }
-
-            updateReminderTopic(s, currTopics)
+            updateReminderTopic(s, topic, false)
 
             s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
                 Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -177,21 +140,17 @@ var (
         },
     }
 )
+// #####################################################################
+// FUNCTIONS BEGIN HERE ################################################
+// #####################################################################
 
+// think main instead of Run
 func Run() {
 
     discord, err := discordgo.New("Bot " + BotToken)
     if err != nil {
         log.Fatal(err)
     }
-
-    // Add an event handler, with the handler function of newMessage
-    discord.AddHandler(newMessage)
-    discord.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-        if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
-            h(s, i)
-        }
-    })
 
     // open the discord session and defer it's closing
     err = discord.Open()
@@ -200,11 +159,12 @@ func Run() {
     }
     defer discord.Close()
 
-    // Get the reminder topics from the channel
-    _, err = getReminderTopics(discord)
-    if err != nil {
-        log.Fatal("error grabbing the current topics ", err)
-    }
+    // Add an event handler 
+    discord.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+        if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
+            h(s, i)
+        }
+    })
 
     // Add in the commands that were defined earlier.
     registeredCommands := make([]*discordgo.ApplicationCommand, len(commands))
@@ -216,6 +176,32 @@ func Run() {
         registeredCommands[i] = cmd
     }
 
+    // Get the pinned message containing the reminder topics
+    messages, err := discord.ChannelMessagesPinned(ReminderChannelID)
+    if err != nil {
+        log.Fatal("Errored getting the pinned message from reminder channel when launching the bot")
+    }
+
+    if len(messages) == 0 {
+        // create an initial message and pin it.
+        message, err := discord.ChannelMessageSend(ReminderChannelID, "This is where your reminder topics will be stored!")
+        if err != nil {
+            log.Fatal("error sending initial pinned message to modify")
+        }
+        // Pin the message
+        err = discord.ChannelMessagePin(ReminderChannelID, message.ID)
+        if err != nil {
+            log.Fatal("error pinning the initial message")
+        }
+
+        pinnedMessage = message
+
+    }
+    
+    if len(messages) != 0 {
+        pinnedMessage = messages[0]
+    }
+
     // This section will run until the process is terminated
     fmt.Println("Bot running...")
     c := make(chan os.Signal, 1)
@@ -224,136 +210,43 @@ func Run() {
 
 }
 
-func newMessage(discord *discordgo.Session, message *discordgo.MessageCreate) {
-
-    // Ignore the bot messages
-    if message.Author.ID == discord.State.User.ID {
-        return
-    }
-
-    // handle the different messages sent by a user
-    switch {
-    case strings.Contains(message.Content, "reminder"):
-        discord.ChannelMessageSend(message.ChannelID, "Will remind you!")
-    case strings.Contains(message.Content, "bot"):
-        discord.ChannelMessageSend(message.ChannelID, "Hello from reminder bot!")
-    }
-
-}
-
-func getReminderTopics(discord *discordgo.Session) ([]string, error) {
-
-    // Get the most recent message in reminder-topics channel, ID is in
-    // ReminderChannelID and we do this by calling ChannelMessagesPinned on 
-    // the current session.
-    reminders, err := discord.ChannelMessagesPinned(ReminderChannelID)
-    if err != nil {
-        log.Fatal("Couldn't get the list of reminders to remind user of")
-    }
-
-    // Check that only one pinned message exists to read from
-    // if len(reminders) != 1 {
-    //    log.Fatal("More than one pinned message to read the reminders from")
-    // }
-
-    // Split the one message into the different 
-    if len(reminders) != 0 {
-        topics := strings.Split(reminders[0].Content, ",")
-
-        // trim the whitespace for consistency
-        for i, topic := range topics {
-            topics[i] = strings.TrimSpace(topic)
-        }
-
-        for _, topic := range topics {
-            println(topic)
-        }
-
-        return topics, nil
-    }
-    var slice []string
-    return slice, nil
-
-}
-
-func addReminderTopics(discord *discordgo.Session, topic string, freq string) {
-
-    // Currently freq will do nothing, need to think of the best way to implement
-    // frequencies other than daily
-
-    reminders, err := discord.ChannelMessagesPinned(ReminderChannelID)
-    if err != nil {
-        log.Fatal("Couldn't get the list of reminders to remind user of")
-    }
-
-    var messageID string
-
-    if len(reminders) != 0{
-        messageID = reminders[0].ID
-        println(messageID)
-    }
-
-    // Check that only one pinned message exists to read from
-    if len(reminders) != 1 {
-        // If the len is not 1, that should mean that there is no pinned message,
-        // so we have to make it ourselves
-        toPin, err := discord.ChannelMessageSend(ReminderChannelID, topic)
-        if err != nil {
-            log.Panic("Could not send initial message to pin in reminder channel")
-        }
-        err = discord.ChannelMessagePin(ReminderChannelID, toPin.ID)
-        if err != nil {
-            log.Panic("Could not pin the first topic message")
-        }
-        return
-    }
-
-    // Split the one message into the different 
-    topics := strings.Split(reminders[0].Content, ",")
-
-    // trim the whitespace for consistency
-    for i, topic := range topics {
-        topics[i] = strings.TrimSpace(topic)
-    }
-
-    for _, topic := range topics {
-        println(topic)
-    }
-
-    topics = append(topics, topic)
-    topicsStringed := strings.Join(topics[:], ", ")
+// HELPER FUNCTIONS
+func updateReminderTopic(discord *discordgo.Session, topic string, add bool) {
+    // helper to update reminder topic pinned message, adds a topic if add is true
+    // removes topic otherwise.
     
-    // rejoined the list of topics into a string again, and now need to
-    // edit the pinned message to the new string. Ok so bots are seemingly not 
-    // allowed to modify messages that were not sent by it  
-    // So need to remove the initial pinned message, pin the inital value and 
-    // afterwards can continue modifying the pinned comment
-    msg, err := discord.ChannelMessageEdit(ReminderChannelID, messageID, topicsStringed)
-    if err != nil {
-        log.Panicf("Cannot modify pinned message: %v", err)
+    // Use the pinnedMessage that is stored globally to modify the current topics
+    if add == true {
+        if pinnedMessage.Content == "This is where your reminder topics will be stored!" {
+            pinnedMessage, _ = discord.ChannelMessageEdit(ReminderChannelID, pinnedMessage.ID, topic)
+            return
+        }
+        newContent := pinnedMessage.Content + " " + topic
+        pinnedMessage, _ = discord.ChannelMessageEdit(ReminderChannelID, pinnedMessage.ID, newContent)
+        return
     }
 
-    println(msg.Content)
-
-}
-
-func updateReminderTopic(discord *discordgo.Session, topics []string) {
-    // Helper function for the handler that removes a reminder, this
-    // takes in the session and the list that the pinned comment should be updated to
-
-    reminders, err := discord.ChannelMessagesPinned(ReminderChannelID)
-    if err != nil {
-        log.Fatal("Couldn't get the list of reminders to remind user of")
+    if pinnedMessage.Content == "This is where your reminder topics will be stored!" {
+        println("Nothing to remove")
+        return
+    }
+    // need to split the string held by pinnedMessage.Content, and remove the 
+    // string that has the topic, then join it again and modify the pinned message
+    currTopicsString := pinnedMessage.Content
+    currTopics := strings.Split(currTopicsString, " ")
+    if len(currTopics) == 1 {
+        newContent := "This is where your reminder topics will be stored!"
+        pinnedMessage, _ = discord.ChannelMessageEdit(ReminderChannelID, pinnedMessage.ID, newContent)
+        return
     }
 
-    messageID := reminders[0].ID
-    topicsStringed := strings.Join(topics[:], ", ")
-
-    msg, err := discord.ChannelMessageEdit(ReminderChannelID, messageID, topicsStringed)
-    if err != nil {
-        log.Panicf("Cannot modify pinned message: %v", err)
+    for i, tpc := range currTopics {
+        if tpc == topic {
+            currTopics[i] = ""
+        }
     }
 
-    println(msg.Content)
-
+    newContent := strings.Join(currTopics, " ")
+    pinnedMessage, _ = discord.ChannelMessageEdit(ReminderChannelID, pinnedMessage.ID, newContent)
+    return
 }
