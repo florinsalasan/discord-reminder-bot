@@ -22,9 +22,12 @@ and coordinate between the env variables and bot.go file.
 
 - [ ] Everything, currently this is not a functioning project
 - [x] Connect to discord api using discordgo package from bwmarrin
-- [ ] Find a method of storing the list of reminders a user wants to be reminded of
+- [x] Find a method of storing the list of reminders a user wants to be reminded of
 - [ ] Setup the cron jobs for periodic reminders while tasks are not marked as complete
-- [ ] Setup a way to mark tasks as complete for the day
-- [ ] Setup a bot command to add and remove daily tasks to be reminded of
+- [x] Setup a way to mark tasks as complete for the day
+- [x] Setup a bot command to add and remove daily tasks to be reminded of
 - [ ] Host it somewhere not on my computer to let it run all the time
 - [ ] Instead of pulling the reminder topics from a pinned message, consider a db
+- [x] Generate topic options to mark finished based on which topics in the json are still marked false
+- [x] Generate topics options to remove based on which topics are being tracked
+- [ ] Update the generated topics for finishing and removal as topics are modified in real time

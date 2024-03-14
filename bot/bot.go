@@ -42,6 +42,7 @@ var (
                     Name: "topic",
                     Description: "The topic you want to be reminded of",
                     Required: true,
+                    Choices: getAllTopics(),
                 },
             },
         },
@@ -57,6 +58,19 @@ var (
                 },
             },
         },
+        {
+            Name: "finished",
+            Description: "Use this to mark a daily topic as finished to prevent more reminders for the rest of the day",
+            Options: []*discordgo.ApplicationCommandOption {
+                {
+                    Type: discordgo.ApplicationCommandOptionString,
+                    Name: "topic",
+                    Description: "The topic you finished today",
+                    Required: true,
+                    Choices: getUnfinishedTopics(),
+                },
+            },
+        },
     }
 
     commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -69,6 +83,7 @@ var (
             })
         },
         "add-topic": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+
             options := i.ApplicationCommandData().Options
             content := ""
             topic := options[0].StringValue()
@@ -111,6 +126,29 @@ var (
                 },
             })
         },
+        "finished": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+
+            topic := i.ApplicationCommandData().Options[0].StringValue()
+
+            markedFinished := markDailyCompleted(topic)
+
+            if markedFinished == true {
+                s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+                    Type: discordgo.InteractionResponseChannelMessageWithSource,
+                    Data: &discordgo.InteractionResponseData{
+                        Content: topic + " has been marked as finished",
+                    },
+                })
+            } else {
+                s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+                    Type: discordgo.InteractionResponseChannelMessageWithSource,
+                    Data: &discordgo.InteractionResponseData{
+                        Content: topic + " is not in the list, could not mark as finished",
+                    },
+                })
+
+            }
+        },
     }
 )
 // #####################################################################
@@ -131,6 +169,24 @@ func Run() {
         log.Fatal("error opening connection, ", err)
     }
     defer discord.Close()
+
+    // open the json file to fill out dailies before setting handlers
+    jsonFile, err = os.Open("reminders.json")
+    if err != nil {
+        log.Fatal("couldn't open reminders.json ", err)
+    }
+
+    defer jsonFile.Close()
+
+    // read the json file
+    byteValue, _ := io.ReadAll(jsonFile)
+    if len(byteValue) != 0 {
+        json.Unmarshal(byteValue, &dailies)
+        println("Found written values in the json file")
+    } else {
+        dailies = make(map[string]bool)
+        println("did not find written values in the json file")
+    }
 
     // Add an event handler 
     discord.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -173,23 +229,6 @@ func Run() {
     
     if len(messages) != 0 {
         pinnedMessage = messages[0]
-    }
-
-    jsonFile, err = os.Open("reminders.json")
-    if err != nil {
-        log.Fatal("couldn't open reminders.json ", err)
-    }
-
-    defer jsonFile.Close()
-
-    // read the json file
-    byteValue, _ := io.ReadAll(jsonFile)
-    if len(byteValue) != 0 {
-        json.Unmarshal(byteValue, &dailies)
-        println("Found written values in the json file")
-    } else {
-        dailies = make(map[string]bool)
-        println("did not find written values in the json file")
     }
 
     // This section will run until the process is terminated
@@ -263,4 +302,73 @@ func updateReminderTopic(discord *discordgo.Session, topic string, add bool) {
     }
     os.WriteFile("reminders.json", newJsonString, 0644)
     return
+}
+
+func markDailyCompleted(topic string) bool {
+
+    // Given a topic, update the map 'dailies' and set dailies[topic] to true,
+    // then update the json file to mark it as true as well.
+    if _, ok := dailies[topic]; ok {
+        dailies[topic] = true
+        newJsonString, err := json.Marshal(dailies)
+        if err != nil {
+            log.Fatal("could not jsonify dailies map")
+        }
+        os.WriteFile("reminders.json", newJsonString, 0644)
+        return true
+    } else {
+        fmt.Println("Key not found in list of reminder topics")
+        return false
+    }
+}
+
+func getUnfinishedTopics() []*discordgo.ApplicationCommandOptionChoice {
+
+    currUnfinished := []*discordgo.ApplicationCommandOptionChoice{}
+
+    jsonFile, err := os.Open("reminders.json")
+    if err != nil {
+        log.Fatal("couldn't open reminders.json ", err)
+    }
+
+    defer jsonFile.Close()
+
+    byteValue, _ := io.ReadAll(jsonFile)
+
+    if len(byteValue) != 0 {
+        json.Unmarshal(byteValue, &dailies)
+        println("Found written values in the json file")
+    }
+
+    for topic, finished := range dailies {
+        if finished == false {
+            currUnfinished = append(currUnfinished, &discordgo.ApplicationCommandOptionChoice{Name: topic, Value: topic})
+        }
+    }
+    return currUnfinished
+}
+
+func getAllTopics() []*discordgo.ApplicationCommandOptionChoice {
+
+    currTopics := []*discordgo.ApplicationCommandOptionChoice{}
+
+    jsonFile, err := os.Open("reminders.json")
+    if err != nil {
+        log.Fatal("couldn't open reminders.json ", err)
+    }
+
+    defer jsonFile.Close()
+
+    byteValue, _ := io.ReadAll(jsonFile)
+
+    if len(byteValue) != 0 {
+        json.Unmarshal(byteValue, &dailies)
+        println("Found written values in the json file")
+    }
+
+    for topic := range dailies {
+        currTopics = append(currTopics, &discordgo.ApplicationCommandOptionChoice{Name: topic, Value: topic})
+    }
+    return currTopics
+
 }
