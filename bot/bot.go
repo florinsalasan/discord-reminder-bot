@@ -1,7 +1,9 @@
 package bot
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -10,13 +12,15 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-// Define some global vars 
+// Define some global vars
 var (
     BotToken string
     RemoveCommands bool
     GuildID string
     ReminderChannelID string
     pinnedMessage *discordgo.Message
+    dailies map[string]bool
+    jsonFile *os.File
 )
 
 // Define the commands and their handlers
@@ -47,30 +51,6 @@ var (
             Options: []*discordgo.ApplicationCommandOption {
                 {
                     Type: discordgo.ApplicationCommandOptionString,
-                    Name: "frequency",
-                    Description: "Set the new reminder frequency to user-input",
-                    Required: true,
-                    Choices: []*discordgo.ApplicationCommandOptionChoice{
-                        {
-                            Name: "Daily",
-                            Value: "daily",
-                        },
-                        {
-                            Name: "Weekly",
-                            Value: "weekly",
-                        },
-                        {
-                            Name: "Monthly",
-                            Value: "monthly",
-                        },
-                        {
-                            Name: "Yearly",
-                            Value: "yearly",
-                        },
-                    },
-                },
-                {
-                    Type: discordgo.ApplicationCommandOptionString,
                     Name: "topic",
                     Description: "The topic you want to be reminded of",
                     Required: true,
@@ -91,15 +71,8 @@ var (
         "add-topic": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
             options := i.ApplicationCommandData().Options
             content := ""
-            topic := options[1].StringValue()
-            frequency := options[0].StringValue() 
-
-            if frequency != "daily" {
-                log.Panic("Frequencies other than daily have not been implemented yet, sorry")
-            }
-
-            content = topic + " has been registered to receive " + 
-                frequency + " updates."
+            topic := options[0].StringValue()
+            content = topic + " has been registered to receive daily reminders."
 
             updateReminderTopic(s, topic, true)
 
@@ -202,6 +175,23 @@ func Run() {
         pinnedMessage = messages[0]
     }
 
+    jsonFile, err = os.Open("reminders.json")
+    if err != nil {
+        log.Fatal("couldn't open reminders.json ", err)
+    }
+
+    defer jsonFile.Close()
+
+    // read the json file
+    byteValue, _ := io.ReadAll(jsonFile)
+    if len(byteValue) != 0 {
+        json.Unmarshal(byteValue, &dailies)
+        println("Found written values in the json file")
+    } else {
+        dailies = make(map[string]bool)
+        println("did not find written values in the json file")
+    }
+
     // This section will run until the process is terminated
     fmt.Println("Bot running...")
     c := make(chan os.Signal, 1)
@@ -219,10 +209,22 @@ func updateReminderTopic(discord *discordgo.Session, topic string, add bool) {
     if add == true {
         if pinnedMessage.Content == "This is where your reminder topics will be stored!" {
             pinnedMessage, _ = discord.ChannelMessageEdit(ReminderChannelID, pinnedMessage.ID, topic)
+            dailies[topic] = false
+            newJsonString, err := json.Marshal(dailies)
+            if err != nil {
+                log.Fatal("could not jsonify dailies map")
+            }
+            os.WriteFile("reminders.json", newJsonString, 0644)
             return
         }
         newContent := pinnedMessage.Content + " " + topic
         pinnedMessage, _ = discord.ChannelMessageEdit(ReminderChannelID, pinnedMessage.ID, newContent)
+        dailies[topic] = false
+        newJsonString, err := json.Marshal(dailies)
+        if err != nil {
+            log.Fatal("could not jsonify dailies map")
+        }
+        os.WriteFile("reminders.json", newJsonString, 0644)
         return
     }
 
@@ -237,6 +239,12 @@ func updateReminderTopic(discord *discordgo.Session, topic string, add bool) {
     if len(currTopics) == 1 {
         newContent := "This is where your reminder topics will be stored!"
         pinnedMessage, _ = discord.ChannelMessageEdit(ReminderChannelID, pinnedMessage.ID, newContent)
+        delete(dailies, topic)
+        newJsonString, err := json.Marshal(dailies)
+        if err != nil {
+            log.Fatal("could not jsonify dailies map")
+        }
+        os.WriteFile("reminders.json", newJsonString, 0644)
         return
     }
 
@@ -248,5 +256,11 @@ func updateReminderTopic(discord *discordgo.Session, topic string, add bool) {
 
     newContent := strings.Join(currTopics, " ")
     pinnedMessage, _ = discord.ChannelMessageEdit(ReminderChannelID, pinnedMessage.ID, newContent)
+    delete(dailies, topic)
+    newJsonString, err := json.Marshal(dailies)
+    if err != nil {
+        log.Fatal("could not jsonify dailies map")
+    }
+    os.WriteFile("reminders.json", newJsonString, 0644)
     return
 }
