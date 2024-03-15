@@ -130,7 +130,7 @@ var (
 
             topic := i.ApplicationCommandData().Options[0].StringValue()
 
-            markedFinished := markDailyCompleted(topic)
+            markedFinished := markDailyCompleted(topic, s)
 
             if markedFinished == true {
                 s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -188,7 +188,7 @@ func Run() {
         println("did not find written values in the json file")
     }
 
-    // Add an event handler 
+    // Add the event handlers
     discord.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
         if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
             h(s, i)
@@ -304,7 +304,7 @@ func updateReminderTopic(discord *discordgo.Session, topic string, add bool) {
     return
 }
 
-func markDailyCompleted(topic string) bool {
+func markDailyCompleted(topic string, discord *discordgo.Session) bool {
 
     // Given a topic, update the map 'dailies' and set dailies[topic] to true,
     // then update the json file to mark it as true as well.
@@ -315,6 +315,26 @@ func markDailyCompleted(topic string) bool {
             log.Fatal("could not jsonify dailies map")
         }
         os.WriteFile("reminders.json", newJsonString, 0644)
+        println(len(commands))
+        appID := commands[0].ApplicationID
+        updatedCmd := discordgo.ApplicationCommand {
+            Name: "finished",
+            Description: "Use this to mark a daily topic as finished to prevent more reminders for the rest of the day",
+            Options: []*discordgo.ApplicationCommandOption {
+                {
+                    Type: discordgo.ApplicationCommandOptionString,
+                    Name: "topic",
+                    Description: "The topic you finished today",
+                    Required: true,
+                    Choices: getUnfinishedTopics(),
+                },
+            },
+        }
+        _, err = discord.ApplicationCommandEdit(appID, GuildID, commands[3].ID, &updatedCmd)
+        if err != nil {
+            log.Fatal("Could not update the finished list of options ", err)
+        }
+        
         return true
     } else {
         fmt.Println("Key not found in list of reminder topics")
