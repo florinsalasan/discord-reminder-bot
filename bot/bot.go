@@ -71,6 +71,10 @@ var (
                 },
             },
         },
+        {
+            Name: "reset",
+            Description: "Use this to reset all topics to incomplete",
+        },
     }
 
     commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -148,6 +152,17 @@ var (
                 })
 
             }
+        },
+        "reset": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+            // reset all of the topics to false once more.
+            resetReminders()
+
+            s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+                Type: discordgo.InteractionResponseChannelMessageWithSource,
+                Data: &discordgo.InteractionResponseData{
+                    Content: "Set all of the topics to incomplete!",
+                },
+            })
         },
     }
 )
@@ -336,9 +351,12 @@ func markDailyCompleted(topic string, discord *discordgo.Session) bool {
         }
         
         return true
+
     } else {
+
         fmt.Println("Key not found in list of reminder topics")
         return false
+
     }
 }
 
@@ -390,5 +408,20 @@ func getAllTopics() []*discordgo.ApplicationCommandOptionChoice {
         currTopics = append(currTopics, &discordgo.ApplicationCommandOptionChoice{Name: topic, Value: topic})
     }
     return currTopics
+
+}
+
+func resetReminders() {
+
+    // set all values in dailies to false and then write it to the json file
+    for k := range dailies {
+        dailies[k] = false
+    }
+
+    newJsonString, err := json.Marshal(dailies)
+    if err != nil {
+        log.Fatal("could not jsonify dailies map")
+    }
+    os.WriteFile("reminders.json", newJsonString, 0644)
 
 }
