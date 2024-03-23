@@ -21,6 +21,7 @@ var (
     pinnedMessage *discordgo.Message
     dailies map[string]bool
     jsonFile *os.File
+    AppID string
 )
 
 // Define the commands and their handlers
@@ -331,7 +332,6 @@ func markDailyCompleted(topic string, discord *discordgo.Session) bool {
         }
         os.WriteFile("reminders.json", newJsonString, 0644)
         println(len(commands))
-        appID := commands[0].ApplicationID
         updatedCmd := discordgo.ApplicationCommand {
             Name: "finished",
             Description: "Use this to mark a daily topic as finished to prevent more reminders for the rest of the day",
@@ -345,7 +345,7 @@ func markDailyCompleted(topic string, discord *discordgo.Session) bool {
                 },
             },
         }
-        _, err = discord.ApplicationCommandEdit(appID, GuildID, commands[3].ID, &updatedCmd)
+        _, err = discord.ApplicationCommandEdit(AppID, GuildID, commands[3].ID, &updatedCmd)
         if err != nil {
             log.Fatal("Could not update the finished list of options ", err)
         }
