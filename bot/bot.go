@@ -345,6 +345,7 @@ func markDailyCompleted(topic string, discord *discordgo.Session) bool {
                 },
             },
         }
+        log.Println(discord.ApplicationCommand(AppID, GuildID, commands[3].ID))
         _, err = discord.ApplicationCommandEdit(AppID, GuildID, commands[3].ID, &updatedCmd)
         if err != nil {
             log.Fatal("Could not update the finished list of options ", err)
