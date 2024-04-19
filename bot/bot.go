@@ -167,6 +167,7 @@ var (
         },
     }
 )
+
 // #####################################################################
 // FUNCTIONS BEGIN HERE ################################################
 // #####################################################################
@@ -331,26 +332,6 @@ func markDailyCompleted(topic string, discord *discordgo.Session) bool {
             log.Fatal("could not jsonify dailies map")
         }
         os.WriteFile("reminders.json", newJsonString, 0644)
-        println(len(commands))
-        updatedCmd := discordgo.ApplicationCommand {
-            Name: "finished",
-            Description: "Use this to mark a daily topic as finished to prevent more reminders for the rest of the day",
-            Options: []*discordgo.ApplicationCommandOption {
-                {
-                    Type: discordgo.ApplicationCommandOptionString,
-                    Name: "topic",
-                    Description: "The topic you finished today",
-                    Required: true,
-                    Choices: getUnfinishedTopics(),
-                },
-            },
-        }
-        log.Println(discord.ApplicationCommand(AppID, GuildID, commands[3].ID))
-        _, err = discord.ApplicationCommandEdit(AppID, GuildID, commands[3].ID, &updatedCmd)
-        if err != nil {
-            log.Fatal("Could not update the finished list of options ", err)
-        }
-        
         return true
 
     } else {
