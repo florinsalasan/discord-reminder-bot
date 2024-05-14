@@ -72,6 +72,10 @@ var (
             },
         },
         {
+            Name: "get-unfinished",
+            Description: "Return a list of topics that have not yet been marked as finished",
+        },
+        {
             Name: "reset",
             Description: "Use this to reset all topics to incomplete",
         },
@@ -150,8 +154,24 @@ var (
                         Content: topic + " is not in the list, could not mark as finished",
                     },
                 })
-
             }
+        },
+        "get-unfinished": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+            // get a list of topics that still need to be completed
+            unfinished := getUnfinishedTopics()
+            var topicCollection []string
+            
+            for topic := range unfinished {
+                topicCollection = append(topicCollection, unfinished[topic].Name)
+            }
+                
+        
+            s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+                Type: discordgo.InteractionResponseChannelMessageWithSource,
+                Data: &discordgo.InteractionResponseData{
+                    Content: strings.Join(topicCollection, "\n"),
+                },
+            })
         },
         "reset": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
             // reset all of the topics to false once more.
