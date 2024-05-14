@@ -15,7 +15,6 @@ import (
 // Define some global vars
 var (
     BotToken string
-    RemoveCommands bool
     GuildID string
     ReminderChannelID string
     pinnedMessage *discordgo.Message
