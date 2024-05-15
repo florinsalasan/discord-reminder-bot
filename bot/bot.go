@@ -426,3 +426,5 @@ func resetReminders() {
     os.WriteFile("reminders.json", newJsonString, 0644)
 
 }
+
+// TODO: rework the storing of the message and json, right now each function is kind of doing it separately so a helper to simplify everything would be great.
