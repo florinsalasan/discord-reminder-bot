@@ -148,6 +148,8 @@ var (
                     },
                 })
             } else {
+                // Discord itself does not allow for choices that are not in the list to be used
+                // So this section is never run.
                 s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
                     Type: discordgo.InteractionResponseChannelMessageWithSource,
                     Data: &discordgo.InteractionResponseData{
