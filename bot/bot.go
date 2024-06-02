@@ -429,4 +429,17 @@ func resetReminders() {
 
 }
 
+func updateCommandOptions(session *discordgo.Session, guildID string, commandID string, options []*discordgo.ApplicationCommandOption) error {
+    command, err := session.ApplicationCommandEdit(session.State.User.ID, guildID, commandID, &discordgo.ApplicationCommand{
+        Options: options,
+    })
+
+    if err != nil { 
+        return err 
+    }
+
+    log.Printf("Updated command: %s\n", command.Name)
+    return nil
+}
+
 // TODO: rework the storing of the message and json, right now each function is kind of doing it separately so a helper to simplify everything would be great.
