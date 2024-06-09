@@ -367,18 +367,9 @@ func getUnfinishedTopics() []*discordgo.ApplicationCommandOptionChoice {
 
     currUnfinished := []*discordgo.ApplicationCommandOptionChoice{}
 
-    jsonFile, err := os.Open("reminders.json")
+    err := readTopicsFromJSON("reminders.json")
     if err != nil {
-        log.Fatal("couldn't open reminders.json ", err)
-    }
-
-    defer jsonFile.Close()
-
-    byteValue, _ := io.ReadAll(jsonFile)
-
-    if len(byteValue) != 0 {
-        json.Unmarshal(byteValue, &dailies)
-        println("Found written values in the json file")
+        log.Fatal("could not read from JSON in getUnfinishedTopics")
     }
 
     for topic, finished := range dailies {
@@ -393,18 +384,9 @@ func getAllTopics() []*discordgo.ApplicationCommandOptionChoice {
 
     currTopics := []*discordgo.ApplicationCommandOptionChoice{}
 
-    jsonFile, err := os.Open("reminders.json")
+    err := readTopicsFromJSON("reminders.json")
     if err != nil {
-        log.Fatal("couldn't open reminders.json ", err)
-    }
-
-    defer jsonFile.Close()
-
-    byteValue, _ := io.ReadAll(jsonFile)
-
-    if len(byteValue) != 0 {
-        json.Unmarshal(byteValue, &dailies)
-        println("Found written values in the json file")
+        log.Fatal("could not read from JSON in getAllTopics")
     }
 
     for topic := range dailies {
@@ -443,3 +425,26 @@ func updateCommandOptions(session *discordgo.Session, guildID string, commandID 
 }
 
 // TODO: rework the storing of the message and json, right now each function is kind of doing it separately so a helper to simplify everything would be great.
+func readTopicsFromJSON(filename string) (error) {
+
+    jsonFile, err := os.Open("reminders.json")
+
+    if err != nil {
+        log.Fatal("couldn't open reminders.json ", err)
+        return err
+    }
+
+    defer jsonFile.Close()
+
+    byteValue, _ := io.ReadAll(jsonFile)
+
+    if len(byteValue) != 0 {
+        // this modifies dailies don't really need to get the returned dailies, since
+        // it can just lead to inconsistent values maybe.
+        json.Unmarshal(byteValue, &dailies)
+        println("Found written values in the json file")
+    }
+
+    return nil
+
+}
