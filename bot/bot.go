@@ -138,7 +138,7 @@ var (
 
             topic := i.ApplicationCommandData().Options[0].StringValue()
 
-            markedFinished := markDailyCompleted(topic, s)
+            markedFinished := markDailyCompleted(topic)
 
             if markedFinished == true {
                 s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -147,6 +147,10 @@ var (
                         Content: topic + " has been marked as finished",
                     },
                 })
+                err := updateFinishedCommand(s)
+                if err != nil {
+                    log.Printf("Error updating finished command: %v", err)
+                }
             } else {
                 // Discord itself does not allow for choices that are not in the list to be used
                 // So this section is never run.
@@ -185,6 +189,10 @@ var (
                     Content: "Set all of the topics to incomplete!",
                 },
             })
+            err := updateFinishedCommand(s)
+            if err != nil {
+                log.Printf("Error updating finished command: %v", err)
+            }
         },
     }
 )
@@ -342,7 +350,7 @@ func updateReminderTopic(discord *discordgo.Session, topic string, add bool) {
     return
 }
 
-func markDailyCompleted(topic string, discord *discordgo.Session) bool {
+func markDailyCompleted(topic string) bool {
 
     // Given a topic, update the map 'dailies' and set dailies[topic] to true,
     // then update the json file to mark it as true as well.
@@ -367,7 +375,7 @@ func getUnfinishedTopics() []*discordgo.ApplicationCommandOptionChoice {
 
     currUnfinished := []*discordgo.ApplicationCommandOptionChoice{}
 
-    err := readTopicsFromJSON("reminders.json")
+    err := readTopicsFromJSON()
     if err != nil {
         log.Fatal("could not read from JSON in getUnfinishedTopics")
     }
@@ -384,7 +392,7 @@ func getAllTopics() []*discordgo.ApplicationCommandOptionChoice {
 
     currTopics := []*discordgo.ApplicationCommandOptionChoice{}
 
-    err := readTopicsFromJSON("reminders.json")
+    err := readTopicsFromJSON()
     if err != nil {
         log.Fatal("could not read from JSON in getAllTopics")
     }
@@ -425,7 +433,7 @@ func updateCommandOptions(session *discordgo.Session, guildID string, commandID 
 }
 
 // TODO: rework the storing of the message and json, right now each function is kind of doing it separately so a helper to simplify everything would be great.
-func readTopicsFromJSON(filename string) (error) {
+func readTopicsFromJSON() (error) {
 
     jsonFile, err := os.Open("reminders.json")
 
@@ -447,4 +455,53 @@ func readTopicsFromJSON(filename string) (error) {
 
     return nil
 
+}
+
+func updateFinishedCommand(s *discordgo.Session) error {
+    // First, get all the application commands
+    commands, err := s.ApplicationCommands(s.State.User.ID, "")
+    if err != nil {
+        return fmt.Errorf("failed to fetch commands: %w", err)
+    }
+
+    log.Printf("Fetched %d commands", len(commands))
+
+    // Find the 'finished' command
+    var finishedCmd *discordgo.ApplicationCommand
+    for _, cmd := range commands {
+        log.Printf("Found command: %s", cmd.Name)
+        if cmd.Name == "finished" {
+            finishedCmd = cmd
+            break
+        }
+    }
+
+    if finishedCmd == nil {
+        return fmt.Errorf("'finished' command not found")
+    }
+
+    log.Printf("Updating 'finished' command with ID: %s", finishedCmd.ID)
+
+    // Now update the command
+    _, err = s.ApplicationCommandEdit(s.State.User.ID, "", finishedCmd.ID, &discordgo.ApplicationCommand{
+        Name:        "finished",
+        Description: "Mark a task as finished",
+        Options: []*discordgo.ApplicationCommandOption{
+            {
+                Type:        discordgo.ApplicationCommandOptionString,
+                Name:        "task",
+                Description: "The task to mark as finished",
+                Required:    true,
+                Choices:     getUnfinishedTopics(),
+            },
+        },
+    })
+
+    if err != nil {
+        return fmt.Errorf("failed to update 'finished' command: %w", err)
+    }
+
+    log.Println("Successfully updated 'finished' command")
+
+    return nil
 }
