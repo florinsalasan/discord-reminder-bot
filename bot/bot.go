@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+    "time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -277,6 +278,8 @@ func Run() {
         pinnedMessage = messages[0]
     }
 
+    startReminderTicker(discord)
+
     // This section will run until the process is terminated
     fmt.Println("Bot running...")
     c := make(chan os.Signal, 1)
@@ -504,4 +507,31 @@ func updateFinishedCommand(s *discordgo.Session) error {
     log.Println("Successfully updated 'finished' command")
 
     return nil
+}
+
+func startReminderTicker(s *discordgo.Session) {
+    // ticker := time.NewTicker(1 * time.Hour) // Adjust the interval as needed
+    ticker := time.NewTicker(1 * time.Minute) // Adjust the interval as needed
+    go func() {
+        for range ticker.C {
+            sendReminders(s)
+        }
+    }()
+}
+
+func sendReminders(s *discordgo.Session) {
+    unfinishedTasks := getUnfinishedTopics()
+    if len(unfinishedTasks) > 0 {
+        var taskNames []string
+        for _, task := range unfinishedTasks {
+            taskNames = append(taskNames, task.Name)
+        }
+        
+        message := fmt.Sprintf("@everyone Reminder: You have the following tasks to complete:\n%s", strings.Join(taskNames, "\n"))
+        
+        _, err := s.ChannelMessageSend(ReminderChannelID, message)
+        if err != nil {
+            log.Printf("Error sending reminder: %v", err)
+        }
+    }
 }
