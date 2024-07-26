@@ -22,6 +22,7 @@ var (
     dailies map[string]bool
     jsonFile *os.File
     AppID string
+    MainChannelID string
 )
 
 // Define the commands and their handlers
@@ -278,7 +279,7 @@ func Run() {
         pinnedMessage = messages[0]
     }
 
-    startReminderTicker(discord)
+    startScheduledTasks(discord)
 
     // This section will run until the process is terminated
     fmt.Println("Bot running...")
@@ -509,16 +510,6 @@ func updateFinishedCommand(s *discordgo.Session) error {
     return nil
 }
 
-func startReminderTicker(s *discordgo.Session) {
-    // ticker := time.NewTicker(1 * time.Hour) // Adjust the interval as needed
-    ticker := time.NewTicker(1 * time.Minute) // Adjust the interval as needed
-    go func() {
-        for range ticker.C {
-            sendReminders(s)
-        }
-    }()
-}
-
 func sendReminders(s *discordgo.Session) {
     unfinishedTasks := getUnfinishedTopics()
     if len(unfinishedTasks) > 0 {
@@ -534,4 +525,47 @@ func sendReminders(s *discordgo.Session) {
             log.Printf("Error sending reminder: %v", err)
         }
     }
+}
+
+func scheduleReset(s *discordgo.Session) {
+    for {
+        now := time.Now()
+        est, _ := time.LoadLocation("America/New_York")
+        resetTime := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, est)
+        if now.After(resetTime) {
+            resetTime = resetTime.Add(24 * time.Hour)
+        }
+        time.Sleep(time.Until(resetTime))
+        performReset(s)
+    }
+}
+
+func scheduleReminders(s *discordgo.Session) {
+    for {
+        now := time.Now()
+        est, _ := time.LoadLocation("America/New_York")
+        reminderTime := time.Date(now.Year(), now.Month(), now.Day(), 12, 45, 0, 0, est)
+        if now.After(reminderTime) {
+            reminderTime = reminderTime.Add(24 * time.Hour)
+        }
+        time.Sleep(time.Until(reminderTime))
+        sendReminders(s)
+    }
+}
+
+func performReset(s *discordgo.Session) {
+    resetReminders()
+    _, err := s.ChannelMessageSend(ReminderChannelID, "All tasks have been reset for the new day.")
+    if err != nil {
+        log.Printf("Error sending reset message: %v", err)
+    }
+    err = updateFinishedCommand(s)
+    if err != nil {
+        log.Print("Error updating finished command after reset: %v", err)
+    }
+}
+
+func startScheduledTasks(s *discordgo.Session) {
+    go scheduleReminders(s)
+    go scheduleReset(s)
 }

@@ -20,12 +20,14 @@ func main() {
     guildID := os.Getenv("GUILD_ID")
     reminderChannelID := os.Getenv("REMINDER_CHANNEL_ID")
     appID := os.Getenv("APP_ID")
+    mainChannelID := os.Getenv("Main_Channel_ID")
 
     // set the bot's token and other variables and start the bot
     bot.BotToken = botToken
     bot.GuildID = guildID
     bot.ReminderChannelID = reminderChannelID
     bot.AppID = appID
+    bot.MainChannelID = mainChannelID
     bot.Run()
 
 }
