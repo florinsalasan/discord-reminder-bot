@@ -510,7 +510,7 @@ func updateFinishedCommand(s *discordgo.Session) error {
     return nil
 }
 
-func sendReminders(s *discordgo.Session) {
+func sendReminders(s *discordgo.Session, introMessage string) {
     unfinishedTasks := getUnfinishedTopics()
     if len(unfinishedTasks) > 0 {
         var taskNames []string
@@ -518,7 +518,7 @@ func sendReminders(s *discordgo.Session) {
             taskNames = append(taskNames, task.Name)
         }
         
-        message := fmt.Sprintf("@everyone Reminder: You have the following tasks to complete:\n%s", strings.Join(taskNames, "\n"))
+        message := fmt.Sprintf("@everyone: %s\n%s", introMessage, strings.Join(taskNames, "\n"))
         
         _, err := s.ChannelMessageSend(ReminderChannelID, message)
         if err != nil {
@@ -540,16 +540,16 @@ func scheduleReset(s *discordgo.Session) {
     }
 }
 
-func scheduleReminders(s *discordgo.Session) {
+func scheduleReminders(s *discordgo.Session, schedule ReminderSchedule) {
     for {
         now := time.Now()
         est, _ := time.LoadLocation("America/New_York")
-        reminderTime := time.Date(now.Year(), now.Month(), now.Day(), 12, 45, 0, 0, est)
+        reminderTime := time.Date(now.Year(), now.Month(), now.Day(), schedule.Hour, schedule.Minute, 0, 0, est)
         if now.After(reminderTime) {
             reminderTime = reminderTime.Add(24 * time.Hour)
         }
         time.Sleep(time.Until(reminderTime))
-        sendReminders(s)
+        sendReminders(s, schedule.Message)
     }
 }
 
@@ -566,6 +566,20 @@ func performReset(s *discordgo.Session) {
 }
 
 func startScheduledTasks(s *discordgo.Session) {
-    go scheduleReminders(s)
+    for _, schedule := range reminderSchedules {
+        go scheduleReminders(s, schedule)
+    }
     go scheduleReset(s)
 }
+
+type ReminderSchedule struct {
+    Hour   int
+    Minute int
+    Message string
+}
+
+var reminderSchedules = []ReminderSchedule{
+    {Hour: 8, Minute: 0, Message: "Good morning! Here are your tasks for today:"},
+    {Hour: 20, Minute: 0, Message: "Evening reminder! Don't forget to complete these tasks:"},
+}
+
