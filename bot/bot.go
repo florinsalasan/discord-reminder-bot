@@ -35,6 +35,18 @@ var (
             Description: "Meant to test the slash commands working",
         },
         {
+            Name: "add-reminder-time",
+            Description: "Add a new reminder time to the schedule",
+            Options: []*discordgo.ApplicationCommandOption{
+                {
+                    Type: discordgo.ApplicationCommandOptionInteger,
+                    Name: "hour",
+                    Description: "Hour of the reminder (0-23)",
+                    Required: true,
+                },
+            },
+        },
+        {
             Name: "remove-topic",
             // use the subcommands usage to implement the frequency of the reminders
             Description: "Parent command for removing a topic to be reminded of",
