@@ -486,6 +486,7 @@ func updateFinishedCommand(s *discordgo.Session) error {
     var finishedCmd *discordgo.ApplicationCommand
     for _, cmd := range commands {
         log.Printf("Found command: %s", cmd.Name)
+        // TODO: Fix this check, this is not working as expected, 
         if cmd.Name == "finished" {
             finishedCmd = cmd
             break
