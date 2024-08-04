@@ -475,7 +475,7 @@ func readTopicsFromJSON() (error) {
 
 func updateFinishedCommand(s *discordgo.Session) error {
     // First, get all the application commands
-    commands, err := s.ApplicationCommands(s.State.User.ID, "")
+    commands, err := s.ApplicationCommands(AppID, GuildID)
     if err != nil {
         return fmt.Errorf("failed to fetch commands: %w", err)
     }
