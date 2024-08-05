@@ -500,7 +500,7 @@ func updateFinishedCommand(s *discordgo.Session) error {
     log.Printf("Updating 'finished' command with ID: %s", finishedCmd.ID)
 
     // Now update the command
-    _, err = s.ApplicationCommandEdit(s.State.User.ID, "", finishedCmd.ID, &discordgo.ApplicationCommand{
+    _, err = s.ApplicationCommandEdit(AppID, GuildID, finishedCmd.ID, &discordgo.ApplicationCommand{
         Name:        "finished",
         Description: "Mark a task as finished",
         Options: []*discordgo.ApplicationCommandOption{
