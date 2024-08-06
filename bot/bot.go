@@ -585,6 +585,13 @@ func startScheduledTasks(s *discordgo.Session) {
     go scheduleReset(s)
 }
 
+func addScheduledReminder(s *discordgo.Session) {
+    // this should be a slash command tbh,
+    reminderSchedules = append(reminderSchedules, ReminderSchedule{
+        12, 0, "Here are the tasks you have left as of the afternoon",
+    })
+}
+
 type ReminderSchedule struct {
     Hour   int
     Minute int
