@@ -3,6 +3,7 @@ package bot
 import (
 	"encoding/json"
 	"fmt"
+    "strconv"
 	"io"
 	"log"
 	"os"
@@ -145,6 +146,28 @@ var (
                 Type: discordgo.InteractionResponseChannelMessageWithSource,
                 Data: &discordgo.InteractionResponseData{
                     Content: topic + " has been removed from list of reminder topics",
+                },
+            })
+        },
+        "add-reminder-time": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+
+            options := i.ApplicationCommandData().Options
+            hour, err := strconv.Atoi(options[0].StringValue())
+            if err != nil {
+                log.Printf("Error converting hour value to int")
+            }
+            minute , err := strconv.Atoi(options[1].StringValue())
+            if err != nil {
+                log.Printf("Error converting minute value to int")
+            }
+            message := options[2].StringValue()
+
+            addScheduledReminder(hour, minute, message)
+
+            s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+                Type: discordgo.InteractionResponseChannelMessageWithSource,
+                Data: &discordgo.InteractionResponseData{
+                    Content: "A new reminder has been set at: %i:%i",
                 },
             })
         },
@@ -585,10 +608,10 @@ func startScheduledTasks(s *discordgo.Session) {
     go scheduleReset(s)
 }
 
-func addScheduledReminder(s *discordgo.Session) {
+func addScheduledReminder(hour int, minute int, message string) {
     // this should be a slash command tbh,
     reminderSchedules = append(reminderSchedules, ReminderSchedule{
-        12, 0, "Here are the tasks you have left as of the afternoon",
+        hour, minute, message,
     })
 }
 
