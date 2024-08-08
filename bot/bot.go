@@ -3,7 +3,7 @@ package bot
 import (
 	"encoding/json"
 	"fmt"
-    "strconv"
+    // "strconv"
 	"io"
 	"log"
 	"os"
@@ -43,6 +43,18 @@ var (
                     Type: discordgo.ApplicationCommandOptionInteger,
                     Name: "hour",
                     Description: "Hour of the reminder (0-23)",
+                    Required: true,
+                },
+                {
+                    Type: discordgo.ApplicationCommandOptionInteger,
+                    Name: "minute",
+                    Description: "Minute of the reminder (0-59)",
+                    Required: true,
+                },
+                {
+                    Type: discordgo.ApplicationCommandOptionString,
+                    Name: "message",
+                    Description: "Message to go with the reminder",
                     Required: true,
                 },
             },
@@ -152,14 +164,13 @@ var (
         "add-reminder-time": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
             options := i.ApplicationCommandData().Options
-            hour, err := strconv.Atoi(options[0].StringValue())
-            if err != nil {
-                log.Printf("Error converting hour value to int")
-            }
-            minute , err := strconv.Atoi(options[1].StringValue())
-            if err != nil {
-                log.Printf("Error converting minute value to int")
-            }
+
+            // hour, err := strconv.Atoi(options[0].StringValue())
+            // if err != nil {
+            //     log.Printf("Error converting hour value to int")
+            // }
+            hour := int(options[0].IntValue())
+            minute := int(options[1].IntValue())
             message := options[2].StringValue()
 
             addScheduledReminder(hour, minute, message)
