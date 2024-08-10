@@ -485,7 +485,7 @@ func updateCommandOptions(session *discordgo.Session, guildID string, commandID 
 // TODO: rework the storing of the message and json, right now each function is kind of doing it separately so a helper to simplify everything would be great.
 func readTopicsFromJSON() (error) {
 
-    jsonFile, err := os.Open("reminder_topcics.json")
+    jsonFile, err := os.Open("reminder_topics.json")
 
     if err != nil {
         log.Fatal("couldn't open reminder_topics.json ", err)
@@ -500,6 +500,30 @@ func readTopicsFromJSON() (error) {
         // this modifies dailies don't really need to get the returned dailies, since
         // it can just lead to inconsistent values maybe.
         json.Unmarshal(byteValue, &dailies)
+        println("Found written values in the json file")
+    }
+
+    return nil
+
+}
+
+func readSchedulesFromJSON() (error) {
+
+    jsonFile, err := os.Open("reminder_schedules.json")
+
+    if err != nil {
+        log.Fatal("couldn't open reminder_schedules.json ", err)
+        return err
+    }
+
+    defer jsonFile.Close()
+
+    byteValue, _ := io.ReadAll(jsonFile)
+
+    if len(byteValue) != 0 {
+        // this modifies dailies don't really need to get the returned dailies, since
+        // it can just lead to inconsistent values maybe.
+        json.Unmarshal(byteValue, &reminderSchedules)
         println("Found written values in the json file")
     }
 
