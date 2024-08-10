@@ -265,9 +265,9 @@ func Run() {
     defer discord.Close()
 
     // open the json file to fill out dailies before setting handlers
-    jsonFile, err = os.Open("reminders.json")
+    jsonFile, err = os.Open("reminder_topics.json")
     if err != nil {
-        log.Fatal("couldn't open reminders.json ", err)
+        log.Fatal("couldn't open reminder_topics.json ", err)
     }
 
     defer jsonFile.Close()
@@ -349,7 +349,7 @@ func updateReminderTopic(discord *discordgo.Session, topic string, add bool) {
             if err != nil {
                 log.Fatal("could not jsonify dailies map")
             }
-            os.WriteFile("reminders.json", newJsonString, 0644)
+            os.WriteFile("reminder_topics.json", newJsonString, 0644)
             return
         }
         newContent := pinnedMessage.Content + " " + topic
@@ -359,7 +359,7 @@ func updateReminderTopic(discord *discordgo.Session, topic string, add bool) {
         if err != nil {
             log.Fatal("could not jsonify dailies map")
         }
-        os.WriteFile("reminders.json", newJsonString, 0644)
+        os.WriteFile("reminder_topics.json", newJsonString, 0644)
         return
     }
 
@@ -379,7 +379,7 @@ func updateReminderTopic(discord *discordgo.Session, topic string, add bool) {
         if err != nil {
             log.Fatal("could not jsonify dailies map")
         }
-        os.WriteFile("reminders.json", newJsonString, 0644)
+        os.WriteFile("reminder_topics.json", newJsonString, 0644)
         return
     }
 
@@ -396,7 +396,7 @@ func updateReminderTopic(discord *discordgo.Session, topic string, add bool) {
     if err != nil {
         log.Fatal("could not jsonify dailies map")
     }
-    os.WriteFile("reminders.json", newJsonString, 0644)
+    os.WriteFile("reminder_topics.json", newJsonString, 0644)
     return
 }
 
@@ -410,7 +410,7 @@ func markDailyCompleted(topic string) bool {
         if err != nil {
             log.Fatal("could not jsonify dailies map")
         }
-        os.WriteFile("reminders.json", newJsonString, 0644)
+        os.WriteFile("reminder_topics.json", newJsonString, 0644)
         return true
 
     } else {
@@ -465,7 +465,7 @@ func resetReminders() {
     if err != nil {
         log.Fatal("could not jsonify dailies map")
     }
-    os.WriteFile("reminders.json", newJsonString, 0644)
+    os.WriteFile("reminder_topics.json", newJsonString, 0644)
 
 }
 
@@ -485,10 +485,10 @@ func updateCommandOptions(session *discordgo.Session, guildID string, commandID 
 // TODO: rework the storing of the message and json, right now each function is kind of doing it separately so a helper to simplify everything would be great.
 func readTopicsFromJSON() (error) {
 
-    jsonFile, err := os.Open("reminders.json")
+    jsonFile, err := os.Open("reminder_topcics.json")
 
     if err != nil {
-        log.Fatal("couldn't open reminders.json ", err)
+        log.Fatal("couldn't open reminder_topics.json ", err)
         return err
     }
 
